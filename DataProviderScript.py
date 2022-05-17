@@ -27,31 +27,10 @@ from rasterio.transform import from_bounds
 from rio_cogeo.cogeo import cog_translate
 from rio_cogeo.profiles import cog_profiles
 
-def _translate(src_path, dst_path, profile="webp", profile_options={}, **options):
-    """Convert image to COG."""
-    # Format creation option (see gdalwarp `-co` option)
-    output_profile = cog_profiles.get(profile)
-    output_profile.update(dict(BIGTIFF="IF_SAFER"))
-    output_profile.update(profile_options)
 
-    # Dataset Open option (see gdalwarp `-oo` option)
-    config = dict(
-        GDAL_NUM_THREADS="ALL_CPUS",
-        GDAL_TIFF_INTERNAL_MASK=True,
-        GDAL_TIFF_OVR_BLOCKSIZE="128",
-    )
-
-    cog_translate(
-        src_path,
-        dst_path,
-        output_profile,
-        config=config,
-        in_memory=False,
-        quiet=True,
-        **options,
-    )
-    return True
-
+##############################################################################
+#              Define parameters for script and GeoTiff output               #
+##############################################################################
 VIZ_TOGGLE = False
 nanval = -32768
 res= 30
@@ -61,24 +40,23 @@ bandNames = ['Area','Area_SE','Biomass','Biomass_SE',
 bandUnits = ['m^2','m^2','wet Kg/900m^2 pixel','wet Kg/900m^2 pixel',
                   'number of images used','number of images used',
                   'number of images used','number of images used']
+
 ##############################################################################
 # Set working dir to location of this script version and define output dir:  #
 ##############################################################################
 path = os.path.abspath(__file__).rsplit('/',1)[0]
 print(f'\nWorking in:\n\n\t{path}.')
 
+in_dir = f'{path}/input'
+
 out_dir = f'{path}/output'
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     
-temp_dir = f'{path}/tmp'
-if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir)
-
 ##############################################################################
 #                            Import utm data:                                #
 ##############################################################################
-fname_utm_coords = f'{path}/utm_coords.csv'
+fname_utm_coords = f'{in_dir}/utm_coords.csv'
 
 utm_coords = np.genfromtxt(fname_utm_coords, delimiter=',',skip_header=1)
 
@@ -95,7 +73,7 @@ print('\n\t',fname_utm_coords)
 #                          Import netcdf data:                               #
 ##############################################################################
 
-ncname = f'{path}/kelpCanopyFromLandsat_2021_v2.nc'
+ncname = f'{in_dir}/kelpCanopyFromLandsat_2021_v2.nc'
 
 ds = nc.Dataset(ncname)
 
@@ -153,133 +131,160 @@ for ku in range(len(us)):
   
   # index by year:
   years = np.unique(year)
-  ky = 28
-  # make year index
-  iy = np.where(year == years[ky])[0]
+  for ky in range(len(years)):
+    iy = np.where(year == years[ky])[0]
+    print(f'\n\tRasterizing year [{years[ky]}]: quarter ',end='')
+    
+    # index by quarter:
+    quarters = np.unique(quarter)
+    for kq in range(len(quarters)):
+      # merge year and quarter indices:
+      it = np.intersect1d(iy,np.where(quarter == quarters[kq])[0])
+      
+      print(f'[{quarters[kq]}]',end='')
+      
+      fout = (f'{out_dir}/kelpArea_{us[ku]:02d}N'
+        f'_{years[ky]:04d}'
+        f'_{quarters[kq]:02d}.tif')
+      
+      # extract data for 1 utm, 1 quarter, 1 year:
+      area = ds['area'][it,iu].astype(np.int16)[0] #int16
+      area_se = ds['area_se'][it,iu].astype(np.int16)[0] #int16
+      biomass = ds['biomass'][it,iu].astype(np.int16)[0] #int16
+      biomass_se = ds['biomass_se'][it,iu].astype(np.int16)[0] #int16
+      passes = ds['passes'][it,iu].astype(np.int16)[0] #int8
+      passes4_5 = ds['passes4_5'][it,iu].astype(np.int16)[0] #int8
+      passes7 = ds['passes7'][it,iu].astype(np.int16)[0] #int8
+      passes8 = ds['passes8'][it,iu].astype(np.int16)[0] #int8
+      
+      ##########################################################
+      #                 Rasterize point data                   #
+      ##########################################################
+      
+      src_transform = from_bounds(
+        west=xmin,east=xmax,
+        south=ymin,north=ymax,
+        width=width, height=height)
+      
+      src_profile = dict(
+        driver="GTiff",
+        dtype="int16",
+        count=nBands,
+        height=height,
+        width=width,
+        crs=crsOut,
+        transform=src_transform)
+      
+      areaRaster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, area))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      areaSeRaster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, area_se))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      biomassRaster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, biomass))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      biomassSeRaster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, biomass_se))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      passesRaster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, passes))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      passes4_5Raster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, passes4_5))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      passes7Raster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, passes7))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      passes8Raster = rio.features.rasterize(
+        ((geom,value) for geom, value in tuple(zip(xyPoints, passes8))),
+        out_shape=tuple((height,width)),
+        fill=nanval,
+        all_touched = True,
+        transform = src_transform).astype(np.int16)
+      
+      dataStack = np.stack((areaRaster,areaSeRaster,biomassRaster,biomassSeRaster,
+        passesRaster,passes4_5Raster,passes7Raster,passes8Raster))
+      
+      del areaRaster, areaSeRaster, biomassRaster, biomassSeRaster
+      del passes4_5Raster, passes7Raster, passes8Raster
+      
+      ##########################################################
+      #              Output Raster Files as COGs               #
+      ##########################################################
+      
+      with MemoryFile() as memfile:
+        with memfile.open(**src_profile) as mem:
+          mem.write(dataStack)
+          for kb in range(1,nBands):
+            mem.set_band_description(kb,bandNames[kb])
+            mem.set_band_unit(kb,bandUnits[kb])
+          
+          #dst_profile = cog_profiles.get("deflate")
+          dst_profile = cog_profiles.get("lzw")
+          cog_translate(
+            mem,
+            fout,
+            dst_profile,
+            forward_band_tags=True,
+            quiet=True,
+            nodata=nanval)
   
-  print(f'\n\tRasterizing year [{years[ky]}]: quarter ',end='')
-  
-  # index by quarter:
-  quarters = np.unique(quarter)
-  kq = 0
-  # merge year and quarter indices:
-  it = np.intersect1d(iy,np.where(quarter == quarters[kq])[0])
-  
-  print(f'[{quarters[kq]}]')
-  
-  # extract data for 1 utm, 1 quarter, 1 year:
-  area = ds['area'][it,iu].astype(np.int16)[0] #int16
-  area_se = ds['area_se'][it,iu].astype(np.int16)[0] #int16
-  biomass = ds['biomass'][it,iu].astype(np.int16)[0] #int16
-  biomass_se = ds['biomass_se'][it,iu].astype(np.int16)[0] #int16
-  passes = ds['passes'][it,iu].astype(np.int16)[0] #int8
-  passes4_5 = ds['passes4_5'][it,iu].astype(np.int16)[0] #int8
-  passes7 = ds['passes7'][it,iu].astype(np.int16)[0] #int8
-  passes8 = ds['passes8'][it,iu].astype(np.int16)[0] #int8
-  
-  ##########################################################
-  #                 Rasterize point data                   #
-  ##########################################################
-  
-  src_transform = from_bounds(
-    west=xmin,east=xmax,
-    south=ymin,north=ymax,
-    width=width, height=height)
-  
-  src_profile = dict(
-    driver="GTiff",
-    dtype="int16",
-    count=nBands,
-    height=height,
-    width=width,
-    crs=crsOut,
-    transform=src_transform)
-  
-  areaRaster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, area))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  areaSeRaster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, area_se))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  biomassRaster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, biomass))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  biomassSeRaster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, biomass_se))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  passesRaster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, passes))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  passes4_5Raster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, passes4_5))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  passes7Raster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, passes7))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  passes8Raster = rio.features.rasterize(
-    ((geom,value) for geom, value in tuple(zip(xyPoints, passes8))),
-    out_shape=tuple((height,width)),
-    fill=nanval,
-    all_touched = True,
-    transform = src_transform).astype(np.int16)
-  
-  dataStack = np.stack((areaRaster,areaSeRaster,biomassRaster,biomassSeRaster,
-    passesRaster,passes4_5Raster,passes7Raster,passes8Raster))
-  
-  del areaRaster, areaSeRaster, biomassRaster, biomassSeRaster
-  del passes4_5Raster, passes7Raster, passes8Raster
-  
-  ##########################################################
-  #              Output Raster Files as COGs               #
-  ##########################################################
-  
-  with MemoryFile() as memfile:
-    with memfile.open(**src_profile) as mem:
-      mem.write(dataStack)
-      for kb in range(1,nBands):
-        mem.set_band_description(kb,bandNames[kb])
-        mem.set_band_unit(kb,bandUnits[kb])
-        
-      #dst_profile = cog_profiles.get("deflate")
-      dst_profile = cog_profiles.get("lzw")
-      cog_translate(
-        mem,
-        f'{out_dir}/kelpArea_zone_{us[ku]}N_year_{years[ky]}_quarter_0{quarters[kq]}.tif',
-        dst_profile,
-        forward_band_tags=True,
-        quiet=True,
-        nodata=nanval)
-  
-  del mem, dataStack
+      del mem, dataStack
 
 if VIZ_TOGGLE:
   # https://github.com/developmentseed/rio-viz
   os.system("rio viz output/kelpArea_zone_10N_year_2012_quarter_01.tif")
+
+def _translate(src_path, dst_path, profile="webp", profile_options={}, **options):
+    """Convert image to COG."""
+    # Format creation option (see gdalwarp `-co` option)
+    output_profile = cog_profiles.get(profile)
+    output_profile.update(dict(BIGTIFF="IF_SAFER"))
+    output_profile.update(profile_options)
+
+    # Dataset Open option (see gdalwarp `-oo` option)
+    config = dict(
+        GDAL_NUM_THREADS="ALL_CPUS",
+        GDAL_TIFF_INTERNAL_MASK=True,
+        GDAL_TIFF_OVR_BLOCKSIZE="128",
+    )
+
+    cog_translate(
+        src_path,
+        dst_path,
+        output_profile,
+        config=config,
+        in_memory=False,
+        quiet=True,
+        **options,
+    )
+    return True
