@@ -261,6 +261,7 @@ for ku in range(len(us)):
       del mem, dataStack
 
 if VIZ_TOGGLE:
+  os.system("rio cogeo info output/kelpArea_zone_11N_year_2012_quarter_01.tif")
   # https://github.com/developmentseed/rio-viz
   os.system("rio viz output/kelpArea_zone_10N_year_2012_quarter_01.tif")
 
