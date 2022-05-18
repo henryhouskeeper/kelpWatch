@@ -244,9 +244,9 @@ for ku in range(len(us)):
       with MemoryFile() as memfile:
         with memfile.open(**src_profile) as mem:
           mem.write(dataStack)
-          for kb in range(1,nBands):
-            mem.set_band_description(kb,bandNames[kb])
-            mem.set_band_unit(kb,bandUnits[kb])
+          for kb in range(0,nBands):
+            mem.set_band_description(kb+1,bandNames[kb])
+            mem.set_band_unit(kb+1,bandUnits[kb])
           
           #dst_profile = cog_profiles.get("deflate")
           dst_profile = cog_profiles.get("lzw")
