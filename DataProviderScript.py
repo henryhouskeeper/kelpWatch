@@ -129,13 +129,13 @@ for ku in range(len(us)):
   #         Import data with dim: (tim,geo)                #
   ##########################################################
   
-  # index by year:
+  # index by year: 28
   years = np.unique(year)
   for ky in range(len(years)):
     iy = np.where(year == years[ky])[0]
     print(f'\n\tRasterizing year [{years[ky]}]: quarter ',end='')
     
-    # index by quarter:
+    # index by quarter: 0
     quarters = np.unique(quarter)
     for kq in range(len(quarters)):
       # merge year and quarter indices:
