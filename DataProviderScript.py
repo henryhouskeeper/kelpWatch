@@ -111,7 +111,7 @@ for ku in range(len(us)):
   elif (us[ku] == 11) & (np.nanmin(lat) >= 0):
     crsOut = rio.crs.CRS.from_epsg(32611)   
   else:
-    raise Exception('CRS not yet defined.')
+    raise Exception('CRS for this location not yet coded.')
   '''crsOut = rio.crs.CRS.from_dict(
       proj='utm', zone=us[ku], datum='WGS84')'''
   
