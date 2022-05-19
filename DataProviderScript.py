@@ -97,7 +97,8 @@ for ku in range(len(us)):
   print('\n-------------------------------')
   print(f'|\tProcessing UTM zone: {us[ku]}\t|')
   print('-------------------------------')
-  crsOut = CRS(proj='utm', zone=us[ku], ellps='WGS84')
+  crsOut = rio.crs.CRS.from_dict(
+      proj='utm', zone=us[ku], datum='WGS84')
   iu = np.where(utm == us[ku])[0]
   
   x = utm_coords[iu,0].astype(int)
