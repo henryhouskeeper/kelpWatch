@@ -97,14 +97,23 @@ for ku in range(len(us)):
   print('\n-------------------------------')
   print(f'|\tProcessing UTM zone: {us[ku]}\t|')
   print('-------------------------------')
-  crsOut = rio.crs.CRS.from_dict(
-      proj='utm', zone=us[ku], datum='WGS84')
+  
   iu = np.where(utm == us[ku])[0]
   
   x = utm_coords[iu,0].astype(int)
   y = utm_coords[iu,1].astype(int)
   lat = ds['lat'][iu]
   lon = ds['lon'][iu]
+  
+  # Define CRS:
+  if (us[ku] == 10) & (np.nanmin(lat) >= 0):
+    crsOut = rio.crs.CRS.from_epsg(32610)
+  elif (us[ku] == 11) & (np.nanmin(lat) >= 0):
+    crsOut = rio.crs.CRS.from_epsg(32611)   
+  else:
+    raise Exception('CRS not yet defined.')
+  '''crsOut = rio.crs.CRS.from_dict(
+      proj='utm', zone=us[ku], datum='WGS84')'''
   
   xmin = np.amin(x)
   xmax = np.amax(x)
