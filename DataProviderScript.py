@@ -15,7 +15,7 @@ get_ipython().magic('reset -sf')
 import os
 import netCDF4 as nc
 import numpy as np
-from pyproj import CRS
+#from pyproj import CRS
 from shapely.geometry import MultiPoint
 
 import rasterio as rio
@@ -45,11 +45,12 @@ bandUnits = ['m^2','m^2','wet Kg/900m^2 pixel','wet Kg/900m^2 pixel',
 # Set working dir to location of this script version and define output dir:  #
 ##############################################################################
 path = os.path.abspath(__file__).rsplit('/',1)[0]
-print(f'\nWorking in:\n\n\t{path}.')
+print(f'\nWorking in:\n\n\t{path}')
 
 in_dir = f'{path}/input'
 
-out_dir = f'{path}/output'
+#out_dir = f'{path}/output'
+out_dir = '/volumes/Planktos/kelpWatch'
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     
@@ -115,6 +116,11 @@ for ku in range(len(us)):
   '''crsOut = rio.crs.CRS.from_dict(
       proj='utm', zone=us[ku], datum='WGS84')'''
   
+  if (np.nanmin(lat) >= 0):
+    hemi = 'N'
+  else:
+    hemi = 'S'
+    
   xmin = np.amin(x)
   xmax = np.amax(x)
   ymin = np.amin(y)
@@ -153,7 +159,7 @@ for ku in range(len(us)):
       
       print(f'[{quarters[kq]}]',end='')
       
-      fout = (f'{out_dir}/kelpArea_{us[ku]:02d}N'
+      fout = (f'{out_dir}/kelpArea_{us[ku]:02d}{hemi:01s}'
         f'_{years[ky]:04d}'
         f'_{quarters[kq]:02d}.tif')
       
