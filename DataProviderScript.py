@@ -38,7 +38,7 @@ from shapely.geometry import MultiPoint
 import rasterio as rio
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
-#from rasterio.features import rasterize
+from rasterio.features import rasterize
 #from rasterio.features import shapes
 
 from rio_cogeo.cogeo import cog_translate
