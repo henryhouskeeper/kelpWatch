@@ -4,6 +4,21 @@
 Created on Fri May 13 11:12:30 2022
 
 @author: floatingforest_mbp
+
+HFH notes: Use conda environment kw:
+(base) $ conda create -n kw -c conda-forge python=3.9
+(base) $ conda activate kw
+(kw) $ conda config --set channel_priority strict
+(kw) $ conda install -c conda-forge netcdf4
+(kw) $ conda install -c conda-forge gdal
+(kw) $ conda install -c conda-forge shapely
+(kw) $ pip install rio-cogeo
+(kw) $ conda install spyder-kernels=1.10.0
+(kw) $ pip install rasterio
+
+## Did not run: (kw) $ conda install -c conda-forge rasterio
+## bc it caused multiple package incompatibilities
+
 """
 
 from warnings import filterwarnings
@@ -17,6 +32,8 @@ import netCDF4 as nc
 import numpy as np
 #from pyproj import CRS
 from shapely.geometry import MultiPoint
+
+#from osgeo import gdal
 
 import rasterio as rio
 from rasterio.io import MemoryFile
@@ -108,7 +125,7 @@ for ku in range(len(us)):
   
   # Define CRS:
   if (us[ku] == 10) & (np.nanmin(lat) >= 0):
-    crsOut = rio.crs.CRS.from_epsg(32610)
+     crsOut = rio.crs.CRS.from_epsg(32610)
   elif (us[ku] == 11) & (np.nanmin(lat) >= 0):
     crsOut = rio.crs.CRS.from_epsg(32611)   
   else:
@@ -159,7 +176,8 @@ for ku in range(len(us)):
       
       print(f'[{quarters[kq]}]',end='')
       
-      fout = (f'{out_dir}/kelpArea_{us[ku]:02d}{hemi:01s}'
+      fout = (f'{out_dir}/kelpArea_'
+        f'{us[ku]:02d}{hemi:s}'
         f'_{years[ky]:04d}'
         f'_{quarters[kq]:02d}.tif')
       
