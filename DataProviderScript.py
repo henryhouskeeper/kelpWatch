@@ -30,7 +30,6 @@ get_ipython().magic('reset -sf')
 import os
 import netCDF4 as nc
 import numpy as np
-#from pyproj import CRS
 from shapely.geometry import MultiPoint
 
 #from osgeo import gdal
@@ -39,7 +38,6 @@ import rasterio as rio
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
 from rasterio.features import rasterize
-#from rasterio.features import shapes
 
 from rio_cogeo.cogeo import cog_translate
 from rio_cogeo.profiles import cog_profiles
@@ -66,8 +64,8 @@ print(f'\nWorking in:\n\n\t{path}')
 
 in_dir = f'{path}/input'
 
-#out_dir = f'{path}/output'
-out_dir = '/volumes/Planktos/kelpWatch'
+out_dir = f'{path}/output'
+#out_dir = '/volumes/Planktos/kelpWatch'
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     
@@ -78,10 +76,6 @@ fname_utm_coords = f'{in_dir}/utm_coords.csv'
 
 utm_coords = np.genfromtxt(fname_utm_coords, delimiter=',',skip_header=1)
 
-#utm_coords = utm_coords[0:500,:]
-
-#x = utm_coords[:,0]
-#y = utm_coords[:,1]
 utm = utm_coords[:,2].astype(int)
 
 print('\nUTM information read from:')
